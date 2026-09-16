@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using CatalogApi.Configuration;
 using CatalogApi.Data;
 using CatalogApi.Services;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 

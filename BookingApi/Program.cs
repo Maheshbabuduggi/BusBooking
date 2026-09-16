@@ -7,7 +7,7 @@ using BookingApi.Configuration;
 using BookingApi.Data;
 using BookingApi.Messaging;
 using BookingApi.Services;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 var builder = WebApplication.CreateBuilder(args);
 
