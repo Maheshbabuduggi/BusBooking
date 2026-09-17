@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bus Booking</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155; --text: #e2e8f0; --muted: #94a3b8;
+    --accent: #38bdf8; --available: #22c55e; --held: #f59e0b; --booked: #ef4444; --error: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 32px; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; }
+  .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; max-width: 1100px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input { width: 100%; padding: 9px 10px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+  button { margin-top: 18px; width: 100%; padding: 10px; background: var(--accent); border: none; border-radius: 6px; color: #0f172a; font-weight: 600; font-size: 14px; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .trip-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .trip-card button { width: auto; margin-top: 0; padding: 8px 16px; }
+  .trip-route { font-weight: 600; }
+  .trip-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .seat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 14px 0; }
+  .seat { padding: 10px 0; text-align: center; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 2px solid transparent; }
+  .seat.Available { background: rgba(34,197,94,0.15); color: var(--available); }
+  .seat.Available.selected { border-color: var(--available); background: rgba(34,197,94,0.35); }
+  .seat.Held { background: rgba(245,158,11,0.1); color: var(--held); cursor: not-allowed; }
+  .seat.Booked { background: rgba(239,68,68,0.1); color: var(--booked); cursor: not-allowed; }
+  .badge { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.Pending { background: rgba(245,158,11,0.15); color: var(--held); }
+  .badge.Confirmed { background: rgba(34,197,94,0.15); color: var(--available); }
+  .badge.PaymentFailed, .badge.Expired { background: rgba(239,68,68,0.15); color: var(--booked); }
+  #message { font-size: 13px; min-height: 18px; margin-top: 10px; }
+  #message.error { color: var(--error); }
+  #message.success { color: var(--available); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .fare-summary { font-size: 14px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Bus Booking</h1>
+<p class="subtitle">Search a route, pick seats, book — then watch the status flip from Pending as the Function processes it.</p>
+
+<div class="layout">
+  <div>
+    <div class="panel">
+      <h2>Search Trips</h2>
+      <label for="origin">Origin</label>
+      <input id="origin" placeholder="Bengaluru" />
+      <label for="destination">Destination</label>
+      <input id="destination" placeholder="Hyderabad" />
+      <label for="date">Date</label>
+      <input id="date" type="date" />
+      <button onclick="searchTrips()">Search</button>
+    </div>
+
+    <div class="panel" id="bookingPanel" style="display:none;">
+      <h2>Your Details</h2>
+      <label for="customerName">Name</label>
+      <input id="customerName" placeholder="Asha Rao" />
+      <label for="customerEmail">Email</label>
+      <input id="customerEmail" type="email" placeholder="asha@example.com" />
+      <label for="customerPhone">Phone</label>
+      <input id="customerPhone" placeholder="9876543210" />
+      <div class="fare-summary" id="fareSummary">Select seats to see fare</div>
+      <button id="bookBtn" onclick="submitBooking()" disabled>Book Selected Seats</button>
+      <div id="message"></div>
+    </div>
+
+    <div class="panel" id="resultPanel" style="display:none;">
+      <h2>Booking Status</h2>
+      <div id="resultContent"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Trips</h2>
+      <div id="tripsContainer"><div class="empty">Search to see available trips.</div></div>
+    </div>
+
+    <div class="panel" id="seatPanel" style="display:none;">
+      <h2>Select Seats</h2>
+      <div class="seat-grid" id="seatGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Edit these two lines for your environment:
+  const CATALOG_BASE = "http://localhost:8080";
+  const BOOKING_BASE = "http://localhost:8081";
+
+  let selectedTrip = null;
+  let selectedSeats = new Set();
+  let pollHandle = null;
+
+  async function searchTrips() {
+    const origin = document.getElementById("origin").value.trim();
+    const destination = document.getElementById("destination").value.trim();
+    const date = document.getElementById("date").value;
+
+    const params = new URLSearchParams();
+    if (origin) params.set("origin", origin);
+    if (destination) params.set("destination", destination);
+    if (date) params.set("date", date);
+
+    const container = document.getElementById("tripsContainer");
+    container.innerHTML = `<div class="empty">Searching...</div>`;
+
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/trips?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const trips = await res.json();
+      renderTrips(trips);
+    } catch (err) {
+      container.innerHTML = `<div class="empty">Could not load trips: ${err.message}. Check CATALOG_BASE and CORS.</div>`;
+    }
+  }
+
+  function renderTrips(trips) {
+    const container = document.getElementById("tripsContainer");
+    if (!trips.length) {
+      container.innerHTML = `<div class="empty">No scheduled trips match that search.</div>`;
+      return;
+    }
+    container.innerHTML = trips.map(t => `
+      <div class="trip-card">
+        <div>
+          <div class="trip-route">${escapeHtml(t.origin)} → ${escapeHtml(t.destination)}</div>
+          <div class="trip-meta">${new Date(t.departureTime).toLocaleString()} · ₹${Number(t.farePerSeat).toFixed(2)}/seat · ${t.availableSeats}/${t.totalSeats} available</div>
+        </div>
+        <button onclick='selectTrip(${JSON.stringify(t)})'>Select</button>
+      </div>
+    `).join("");
+  }
+
+  async function selectTrip(trip) {
+    selectedTrip = trip;
+    selectedSeats = new Set();
+    document.getElementById("seatPanel").style.display = "block";
+    document.getElementById("bookingPanel").style.display = "block";
+    document.getElementById("resultPanel").style.display = "none";
+    updateFareSummary();
+
+    const grid = document.getElementById("seatGrid");
+    grid.innerHTML = `<div class="empty">Loading seats...</div>`;
+
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/trips/${trip.id}/seats`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const seats = await res.json();
+      renderSeats(seats);
+    } catch (err) {
+      grid.innerHTML = `<div class="empty">Could not load seats: ${err.message}</div>`;
+    }
+  }
+
+  function renderSeats(seats) {
+    const grid = document.getElementById("seatGrid");
+    grid.innerHTML = seats.map(s => `
+      <div class="seat ${s.status} ${selectedSeats.has(s.seatNumber) ? 'selected' : ''}"
+           onclick="toggleSeat('${s.seatNumber}', '${s.status}')">${escapeHtml(s.seatNumber)}</div>
+    `).join("");
+  }
+
+  function toggleSeat(seatNumber, status) {
+    if (status !== "Available") return;
+    if (selectedSeats.has(seatNumber)) selectedSeats.delete(seatNumber);
+    else selectedSeats.add(seatNumber);
+
+    document.querySelectorAll(".seat").forEach(el => {
+      if (el.textContent === seatNumber) el.classList.toggle("selected", selectedSeats.has(seatNumber));
+    });
+    updateFareSummary();
+  }
+
+  function updateFareSummary() {
+    const count = selectedSeats.size;
+    const summary = document.getElementById("fareSummary");
+    const bookBtn = document.getElementById("bookBtn");
+    if (!selectedTrip || count === 0) {
+      summary.textContent = "Select seats to see fare";
+      bookBtn.disabled = true;
+      return;
+    }
+    const total = selectedTrip.farePerSeat * count;
+    summary.textContent = `${count} seat(s) selected — ₹${total.toFixed(2)} total`;
+    bookBtn.disabled = false;
+  }
+
+  async function submitBooking() {
+    const bookBtn = document.getElementById("bookBtn");
+    const message = document.getElementById("message");
+    bookBtn.disabled = true;
+    message.textContent = "";
+    message.className = "";
+
+    const payload = {
+      tripId: selectedTrip.id,
+      seatNumbers: Array.from(selectedSeats),
+      customerName: document.getElementById("customerName").value,
+      customerEmail: document.getElementById("customerEmail").value,
+      customerPhone: document.getElementById("customerPhone").value
+    };
+
+    try {
+      const res = await fetch(`${BOOKING_BASE}/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+
+      const booking = await res.json();
+      message.textContent = "Booking created — tracking status below.";
+      message.className = "success";
+      showBookingResult(booking);
+      startPolling(booking.id);
+    } catch (err) {
+      message.textContent = err.message;
+      message.className = "error";
+      bookBtn.disabled = false;
+    }
+  }
+
+  function showBookingResult(booking) {
+    document.getElementById("resultPanel").style.display = "block";
+    document.getElementById("resultContent").innerHTML = `
+      <p>Booking <strong>${booking.id}</strong></p>
+      <p>Seats: ${booking.seatNumbers.join(", ")} · Total: ₹${Number(booking.totalFare).toFixed(2)}</p>
+      <p>Status: <span class="badge ${booking.status}" id="statusBadge">${booking.status}</span></p>
+    `;
+  }
+
+  function startPolling(bookingId) {
+    if (pollHandle) clearInterval(pollHandle);
+    pollHandle = setInterval(async () => {
+      try {
+        const res = await fetch(`${BOOKING_BASE}/api/bookings/${bookingId}`);
+        if (!res.ok) return;
+        const booking = await res.json();
+        const badge = document.getElementById("statusBadge");
+        if (badge) { badge.textContent = booking.status; badge.className = `badge ${booking.status}`; }
+
+        if (["Confirmed", "PaymentFailed", "Expired", "Cancelled"].includes(booking.status)) {
+          clearInterval(pollHandle);
+          document.getElementById("bookBtn").disabled = selectedSeats.size === 0;
+        }
+      } catch { /* keep polling on transient errors */ }
+    }, 2000);
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>

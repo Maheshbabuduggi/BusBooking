@@ -23,7 +23,6 @@ builder.Services.AddDbContext<CatalogDbContext>(options =>
         sql.EnableRetryOnFailure(3);
         sql.MigrationsHistoryTable("__EFMigrationsHistory_Catalog");
     }));
-
 builder.Services.AddScoped<IBusService, BusService>();
 builder.Services.AddScoped<IRouteService, RouteService>();
 builder.Services.AddScoped<ITripService, TripService>();
@@ -40,6 +39,11 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 });
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -55,6 +59,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
