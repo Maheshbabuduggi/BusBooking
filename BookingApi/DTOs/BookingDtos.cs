@@ -17,6 +17,8 @@ public class BookingResponseDto
     public Guid TripId { get; set; }
     public List<string> SeatNumbers { get; set; } = new();
     public string CustomerName { get; set; } = string.Empty;
+    public string CustomerEmail { get; set; } = string.Empty;
+    public string CustomerPhone { get; set; } = string.Empty;
     public int NumberOfSeats { get; set; }
     public decimal TotalFare { get; set; }
     public string Status { get; set; } = string.Empty;

@@ -13,13 +13,19 @@
   body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 32px; }
   h1 { margin: 0 0 4px; font-size: 22px; }
   h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; }
-  .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); max-width: 1100px; }
+  .tab-btn { background: none; border: none; color: var(--muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin: 0; width: auto; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
   .layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; max-width: 1100px; }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
-  input { width: 100%; padding: 9px 10px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+  input, select { width: 100%; padding: 9px 10px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
   button { margin-top: 18px; width: 100%; padding: 10px; background: var(--accent); border: none; border-radius: 6px; color: #0f172a; font-weight: 600; font-size: 14px; cursor: pointer; }
   button:disabled { opacity: 0.5; cursor: default; }
+  button.small { width: auto; padding: 6px 12px; margin: 0; font-size: 12px; }
   .trip-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
   .trip-card button { width: auto; margin-top: 0; padding: 8px 16px; }
   .trip-route { font-weight: 600; }
@@ -32,62 +38,168 @@
   .seat.Booked { background: rgba(239,68,68,0.1); color: var(--booked); cursor: not-allowed; }
   .badge { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
   .badge.Pending { background: rgba(245,158,11,0.15); color: var(--held); }
-  .badge.Confirmed { background: rgba(34,197,94,0.15); color: var(--available); }
-  .badge.PaymentFailed, .badge.Expired { background: rgba(239,68,68,0.15); color: var(--booked); }
+  .badge.Confirmed, .badge.Scheduled { background: rgba(34,197,94,0.15); color: var(--available); }
+  .badge.PaymentFailed, .badge.Expired, .badge.Cancelled { background: rgba(239,68,68,0.15); color: var(--booked); }
   #message { font-size: 13px; min-height: 18px; margin-top: 10px; }
   #message.error { color: var(--error); }
   #message.success { color: var(--available); }
   .empty { color: var(--muted); font-size: 13px; }
   .fare-summary { font-size: 14px; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .refresh-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .refresh-row button { width: auto; margin: 0; }
+  .form-msg { font-size: 13px; min-height: 18px; margin-top: 8px; }
 </style>
 </head>
 <body>
 
 <h1>Bus Booking</h1>
-<p class="subtitle">Search a route, pick seats, book — then watch the status flip from Pending as the Function processes it.</p>
+<p class="subtitle">Book a trip as a customer, or manage buses/routes/trips and see who's booked what as an admin.</p>
 
-<div class="layout">
-  <div>
-    <div class="panel">
-      <h2>Search Trips</h2>
-      <label for="origin">Origin</label>
-      <input id="origin" placeholder="Bengaluru" />
-      <label for="destination">Destination</label>
-      <input id="destination" placeholder="Hyderabad" />
-      <label for="date">Date</label>
-      <input id="date" type="date" />
-      <button onclick="searchTrips()">Search</button>
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('book')">Book a Trip</button>
+  <button class="tab-btn" onclick="switchTab('buses')">Buses</button>
+  <button class="tab-btn" onclick="switchTab('routes')">Routes</button>
+  <button class="tab-btn" onclick="switchTab('trips')">Trips</button>
+  <button class="tab-btn" onclick="switchTab('bookings')">Bookings</button>
+</div>
+
+<!-- ===== TAB: Book a Trip ===== -->
+<div class="tab-panel active" id="tab-book">
+  <div class="layout">
+    <div>
+      <div class="panel">
+        <h2>Search Trips</h2>
+        <label for="origin">Origin</label>
+        <input id="origin" placeholder="Bengaluru" />
+        <label for="destination">Destination</label>
+        <input id="destination" placeholder="Hyderabad" />
+        <label for="date">Date</label>
+        <input id="date" type="date" />
+        <button onclick="searchTrips()">Search</button>
+      </div>
+
+      <div class="panel" id="bookingPanel" style="display:none;">
+        <h2>Your Details</h2>
+        <label for="customerName">Name</label>
+        <input id="customerName" placeholder="Asha Rao" />
+        <label for="customerEmail">Email</label>
+        <input id="customerEmail" type="email" placeholder="asha@example.com" />
+        <label for="customerPhone">Phone</label>
+        <input id="customerPhone" placeholder="9876543210" />
+        <div class="fare-summary" id="fareSummary">Select seats to see fare</div>
+        <button id="bookBtn" onclick="submitBooking()" disabled>Book Selected Seats</button>
+        <div id="message"></div>
+      </div>
+
+      <div class="panel" id="resultPanel" style="display:none;">
+        <h2>Booking Status</h2>
+        <div id="resultContent"></div>
+      </div>
     </div>
 
-    <div class="panel" id="bookingPanel" style="display:none;">
-      <h2>Your Details</h2>
-      <label for="customerName">Name</label>
-      <input id="customerName" placeholder="Asha Rao" />
-      <label for="customerEmail">Email</label>
-      <input id="customerEmail" type="email" placeholder="asha@example.com" />
-      <label for="customerPhone">Phone</label>
-      <input id="customerPhone" placeholder="9876543210" />
-      <div class="fare-summary" id="fareSummary">Select seats to see fare</div>
-      <button id="bookBtn" onclick="submitBooking()" disabled>Book Selected Seats</button>
-      <div id="message"></div>
-    </div>
+    <div>
+      <div class="panel">
+        <h2>Trips</h2>
+        <div id="tripsContainer"><div class="empty">Search to see available trips.</div></div>
+      </div>
 
-    <div class="panel" id="resultPanel" style="display:none;">
-      <h2>Booking Status</h2>
-      <div id="resultContent"></div>
+      <div class="panel" id="seatPanel" style="display:none;">
+        <h2>Select Seats</h2>
+        <div class="seat-grid" id="seatGrid"></div>
+      </div>
     </div>
   </div>
+</div>
 
-  <div>
+<!-- ===== TAB: Buses ===== -->
+<div class="tab-panel" id="tab-buses">
+  <div class="layout">
     <div class="panel">
-      <h2>Trips</h2>
-      <div id="tripsContainer"><div class="empty">Search to see available trips.</div></div>
+      <h2>Add a Bus</h2>
+      <label for="busReg">Registration Number</label>
+      <input id="busReg" placeholder="KA-01-AB-1234" />
+      <label for="busOperator">Operator Name</label>
+      <input id="busOperator" placeholder="Sharma Travels" />
+      <label for="busSeats">Total Seats</label>
+      <input id="busSeats" type="number" min="1" value="40" />
+      <label for="busType">Bus Type</label>
+      <input id="busType" placeholder="AC_Sleeper" />
+      <button onclick="createBus()">Add Bus</button>
+      <div class="form-msg" id="busMsg"></div>
     </div>
 
-    <div class="panel" id="seatPanel" style="display:none;">
-      <h2>Select Seats</h2>
-      <div class="seat-grid" id="seatGrid"></div>
+    <div class="panel">
+      <div class="refresh-row"><h2>All Buses</h2><button class="small" onclick="loadBuses()">Refresh</button></div>
+      <div id="busesTable"><div class="empty">Loading...</div></div>
     </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Routes ===== -->
+<div class="tab-panel" id="tab-routes">
+  <div class="layout">
+    <div class="panel">
+      <h2>Add a Route</h2>
+      <label for="routeOrigin">Origin</label>
+      <input id="routeOrigin" placeholder="Bengaluru" />
+      <label for="routeDestination">Destination</label>
+      <input id="routeDestination" placeholder="Hyderabad" />
+      <label for="routeDistance">Distance (km)</label>
+      <input id="routeDistance" type="number" min="1" value="570" />
+      <label for="routeDuration">Duration (minutes)</label>
+      <input id="routeDuration" type="number" min="1" value="540" />
+      <button onclick="createRoute()">Add Route</button>
+      <div class="form-msg" id="routeMsg"></div>
+    </div>
+
+    <div class="panel">
+      <div class="refresh-row"><h2>All Routes</h2><button class="small" onclick="loadRoutes()">Refresh</button></div>
+      <div id="routesTable"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Trips ===== -->
+<div class="tab-panel" id="tab-trips">
+  <div class="layout">
+    <div class="panel">
+      <h2>Schedule a Trip</h2>
+      <label for="tripBus">Bus</label>
+      <select id="tripBus"></select>
+      <label for="tripRoute">Route</label>
+      <select id="tripRoute"></select>
+      <label for="tripDeparture">Departure</label>
+      <input id="tripDeparture" type="datetime-local" />
+      <label for="tripArrival">Arrival</label>
+      <input id="tripArrival" type="datetime-local" />
+      <label for="tripFare">Fare per Seat</label>
+      <input id="tripFare" type="number" min="1" step="0.01" value="899.00" />
+      <button onclick="createTrip()">Schedule Trip</button>
+      <div class="form-msg" id="tripMsg"></div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="refresh-row"><h2>All Trips</h2><button class="small" onclick="loadTripsAdmin()">Refresh</button></div>
+        <div id="tripsAdminTable"><div class="empty">Loading...</div></div>
+      </div>
+
+      <div class="panel" id="seatViewerPanel" style="display:none;">
+        <h2 id="seatViewerTitle">Seats</h2>
+        <div class="seat-grid" id="seatViewerGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Bookings ===== -->
+<div class="tab-panel" id="tab-bookings">
+  <div class="panel" style="max-width:1100px;">
+    <div class="refresh-row"><h2>All Bookings</h2><button class="small" onclick="loadBookings()">Refresh</button></div>
+    <div id="bookingsTable"><div class="empty">Loading...</div></div>
   </div>
 </div>
 
@@ -100,6 +212,26 @@
   let selectedSeats = new Set();
   let pollHandle = null;
 
+  // ---------- Tabs ----------
+  function switchTab(name) {
+    document.querySelectorAll(".tab-panel").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+    document.getElementById(`tab-${name}`).classList.add("active");
+    event.target.classList.add("active");
+
+    if (name === "buses") loadBuses();
+    if (name === "routes") loadRoutes();
+    if (name === "trips") { loadTripsAdmin(); loadDropdowns(); }
+    if (name === "bookings") loadBookings();
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str ?? "";
+    return div.innerHTML;
+  }
+
+  // ---------- Book a Trip (customer flow) ----------
   async function searchTrips() {
     const origin = document.getElementById("origin").value.trim();
     const destination = document.getElementById("destination").value.trim();
@@ -126,7 +258,7 @@
   function renderTrips(trips) {
     const container = document.getElementById("tripsContainer");
     if (!trips.length) {
-      container.innerHTML = `<div class="empty">No scheduled trips match that search.</div>`;
+      container.innerHTML = `<div class="empty">No scheduled trips match that search. Add one in the Trips tab first.</div>`;
       return;
     }
     container.innerHTML = trips.map(t => `
@@ -174,7 +306,7 @@
     if (selectedSeats.has(seatNumber)) selectedSeats.delete(seatNumber);
     else selectedSeats.add(seatNumber);
 
-    document.querySelectorAll(".seat").forEach(el => {
+    document.querySelectorAll("#seatGrid .seat").forEach(el => {
       if (el.textContent === seatNumber) el.classList.toggle("selected", selectedSeats.has(seatNumber));
     });
     updateFareSummary();
@@ -260,10 +392,186 @@
     }, 2000);
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
+  // ---------- Buses (admin) ----------
+  async function loadBuses() {
+    const el = document.getElementById("busesTable");
+    el.innerHTML = `<div class="empty">Loading...</div>`;
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/buses`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buses = await res.json();
+      if (!buses.length) { el.innerHTML = `<div class="empty">No buses yet.</div>`; return; }
+      el.innerHTML = `<table><thead><tr><th>Reg. No.</th><th>Operator</th><th>Seats</th><th>Type</th></tr></thead><tbody>
+        ${buses.map(b => `<tr><td>${escapeHtml(b.registrationNumber)}</td><td>${escapeHtml(b.operatorName)}</td><td>${b.totalSeats}</td><td>${escapeHtml(b.busType)}</td></tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) {
+      el.innerHTML = `<div class="empty">Could not load buses: ${err.message}</div>`;
+    }
+  }
+
+  async function createBus() {
+    const msg = document.getElementById("busMsg");
+    msg.textContent = ""; msg.className = "form-msg";
+    const payload = {
+      registrationNumber: document.getElementById("busReg").value,
+      operatorName: document.getElementById("busOperator").value,
+      totalSeats: Number(document.getElementById("busSeats").value),
+      busType: document.getElementById("busType").value
+    };
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/buses`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).title || `HTTP ${res.status}`);
+      msg.textContent = "Bus added."; msg.className = "form-msg success";
+      loadBuses();
+    } catch (err) {
+      msg.textContent = err.message; msg.className = "form-msg error";
+    }
+  }
+
+  // ---------- Routes (admin) ----------
+  async function loadRoutes() {
+    const el = document.getElementById("routesTable");
+    el.innerHTML = `<div class="empty">Loading...</div>`;
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/routes`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const routes = await res.json();
+      if (!routes.length) { el.innerHTML = `<div class="empty">No routes yet.</div>`; return; }
+      el.innerHTML = `<table><thead><tr><th>Origin</th><th>Destination</th><th>Distance</th><th>Duration</th></tr></thead><tbody>
+        ${routes.map(r => `<tr><td>${escapeHtml(r.origin)}</td><td>${escapeHtml(r.destination)}</td><td>${r.distanceKm} km</td><td>${r.estimatedDurationMinutes} min</td></tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) {
+      el.innerHTML = `<div class="empty">Could not load routes: ${err.message}</div>`;
+    }
+  }
+
+  async function createRoute() {
+    const msg = document.getElementById("routeMsg");
+    msg.textContent = ""; msg.className = "form-msg";
+    const payload = {
+      origin: document.getElementById("routeOrigin").value,
+      destination: document.getElementById("routeDestination").value,
+      distanceKm: Number(document.getElementById("routeDistance").value),
+      estimatedDurationMinutes: Number(document.getElementById("routeDuration").value)
+    };
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/routes`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).title || `HTTP ${res.status}`);
+      msg.textContent = "Route added."; msg.className = "form-msg success";
+      loadRoutes();
+    } catch (err) {
+      msg.textContent = err.message; msg.className = "form-msg error";
+    }
+  }
+
+  // ---------- Trips (admin) ----------
+  async function loadDropdowns() {
+    try {
+      const [busesRes, routesRes] = await Promise.all([
+        fetch(`${CATALOG_BASE}/api/buses`), fetch(`${CATALOG_BASE}/api/routes`)
+      ]);
+      const buses = await busesRes.json();
+      const routes = await routesRes.json();
+
+      document.getElementById("tripBus").innerHTML = buses.length
+        ? buses.map(b => `<option value="${b.id}">${escapeHtml(b.registrationNumber)} — ${escapeHtml(b.operatorName)}</option>`).join("")
+        : `<option value="">Add a bus first</option>`;
+
+      document.getElementById("tripRoute").innerHTML = routes.length
+        ? routes.map(r => `<option value="${r.id}">${escapeHtml(r.origin)} → ${escapeHtml(r.destination)}</option>`).join("")
+        : `<option value="">Add a route first</option>`;
+    } catch (err) {
+      console.error("Could not load buses/routes for dropdowns:", err);
+    }
+  }
+
+  async function loadTripsAdmin() {
+    const el = document.getElementById("tripsAdminTable");
+    el.innerHTML = `<div class="empty">Loading...</div>`;
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/trips`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const trips = await res.json();
+      if (!trips.length) { el.innerHTML = `<div class="empty">No trips yet.</div>`; return; }
+      el.innerHTML = `<table><thead><tr><th>Route</th><th>Departure</th><th>Fare</th><th>Status</th><th>Seats</th><th></th></tr></thead><tbody>
+        ${trips.map(t => `<tr>
+          <td>${escapeHtml(t.origin)} → ${escapeHtml(t.destination)}</td>
+          <td>${new Date(t.departureTime).toLocaleString()}</td>
+          <td>₹${Number(t.farePerSeat).toFixed(2)}</td>
+          <td><span class="badge ${t.status}">${t.status}</span></td>
+          <td>${t.availableSeats}/${t.totalSeats}</td>
+          <td><button class="small" onclick='viewSeatsForTrip("${t.id}", "${escapeHtml(t.origin)} → ${escapeHtml(t.destination)}")'>View Seats</button></td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) {
+      el.innerHTML = `<div class="empty">Could not load trips: ${err.message}</div>`;
+    }
+  }
+
+  async function createTrip() {
+    const msg = document.getElementById("tripMsg");
+    msg.textContent = ""; msg.className = "form-msg";
+    const payload = {
+      busId: document.getElementById("tripBus").value,
+      routeId: document.getElementById("tripRoute").value,
+      departureTime: new Date(document.getElementById("tripDeparture").value).toISOString(),
+      arrivalTime: new Date(document.getElementById("tripArrival").value).toISOString(),
+      farePerSeat: Number(document.getElementById("tripFare").value)
+    };
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/trips`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+      msg.textContent = "Trip scheduled."; msg.className = "form-msg success";
+      loadTripsAdmin();
+    } catch (err) {
+      msg.textContent = err.message; msg.className = "form-msg error";
+    }
+  }
+
+  async function viewSeatsForTrip(tripId, label) {
+    const panel = document.getElementById("seatViewerPanel");
+    const grid = document.getElementById("seatViewerGrid");
+    document.getElementById("seatViewerTitle").textContent = `Seats — ${label}`;
+    panel.style.display = "block";
+    grid.innerHTML = `<div class="empty">Loading...</div>`;
+    try {
+      const res = await fetch(`${CATALOG_BASE}/api/trips/${tripId}/seats`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const seats = await res.json();
+      grid.innerHTML = seats.map(s => `<div class="seat ${s.status}" style="cursor:default;">${escapeHtml(s.seatNumber)}</div>`).join("");
+    } catch (err) {
+      grid.innerHTML = `<div class="empty">Could not load seats: ${err.message}</div>`;
+    }
+  }
+
+  // ---------- Bookings (list — stands in for a "users" view) ----------
+  async function loadBookings() {
+    const el = document.getElementById("bookingsTable");
+    el.innerHTML = `<div class="empty">Loading...</div>`;
+    try {
+      const res = await fetch(`${BOOKING_BASE}/api/bookings`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const bookings = await res.json();
+      if (!bookings.length) { el.innerHTML = `<div class="empty">No bookings yet.</div>`; return; }
+      el.innerHTML = `<table><thead><tr><th>Customer</th><th>Email</th><th>Seats</th><th>Fare</th><th>Status</th><th>Created</th></tr></thead><tbody>
+        ${bookings.map(b => `<tr>
+          <td>${escapeHtml(b.customerName)}</td>
+          <td>${escapeHtml(b.customerEmail ?? "")}</td>
+          <td>${b.seatNumbers.join(", ")}</td>
+          <td>₹${Number(b.totalFare).toFixed(2)}</td>
+          <td><span class="badge ${b.status}">${b.status}</span></td>
+          <td>${new Date(b.createdAt).toLocaleString()}</td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) {
+      el.innerHTML = `<div class="empty">Could not load bookings: ${err.message}</div>`;
+    }
   }
 </script>
 </body>

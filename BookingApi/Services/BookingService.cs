@@ -93,9 +93,18 @@ public class BookingService : IBookingService
         return ToDto(booking, seatNumbers);
     }
 
+    public async Task<IEnumerable<BookingResponseDto>> GetAllBookingsAsync(CancellationToken ct = default)
+    {
+        var bookings = await _db.Bookings.AsNoTracking().OrderByDescending(b => b.CreatedAt).ToListAsync(ct);
+        var allSeats = await _db.BookingSeats.AsNoTracking().ToListAsync(ct);
+
+        return bookings.Select(b => ToDto(b, allSeats.Where(s => s.BookingId == b.Id).Select(s => s.SeatNumber).ToList()));
+    }
+
     private static BookingResponseDto ToDto(Booking b, List<string> seatNumbers) => new()
     {
         Id = b.Id, TripId = b.TripId, SeatNumbers = seatNumbers, CustomerName = b.CustomerName,
+        CustomerEmail = b.CustomerEmail, CustomerPhone = b.CustomerPhone,
         NumberOfSeats = b.NumberOfSeats, TotalFare = b.TotalFare, Status = b.Status,
         CreatedAt = b.CreatedAt, ConfirmedAt = b.ConfirmedAt
     };

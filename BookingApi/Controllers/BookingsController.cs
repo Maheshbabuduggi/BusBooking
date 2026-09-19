@@ -28,4 +28,8 @@ public class BookingsController : ControllerBase
         var booking = await _bookingService.GetBookingByIdAsync(id, ct);
         return booking is null ? NotFound() : Ok(booking);
     }
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<BookingResponseDto>>> GetAllBookings(CancellationToken ct)
+        => Ok(await _bookingService.GetAllBookingsAsync(ct));
 }
