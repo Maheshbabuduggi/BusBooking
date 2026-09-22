@@ -17,7 +17,7 @@ services:
       - "8081:8081"
     environment:
         ASPNETCORE_ENVIRONMENT: Production
-        Azure__CatalogApiBaseUrl: http://20.204.55.88:8080/
+        Azure__CatalogApiBaseUrl: http://40.80.94.219:8080/
   bookingweb:
     image: maheshsanju/bookingwebui:v1.0.0
     container_name: bookingweb

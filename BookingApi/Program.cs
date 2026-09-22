@@ -50,11 +50,17 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 // Add this near the other builder.Services.Add... calls:
+
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddPolicy("AllowBookingWeb", policy =>
+    {
+        policy.WithOrigins(
+            "https://bookingweb-mb007-hdc3cqahhdfyh0bq.centralindia-01.azurewebsites.net")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
 });
-
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -70,7 +76,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors();
+app.UseCors("AllowBookingWeb");
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
